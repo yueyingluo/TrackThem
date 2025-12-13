@@ -464,14 +464,24 @@ class PPO_Track(object):
 
     def play_test_steps(self):
         for _ in range(self.horizon_length):
+            torch.cuda.synchronize()
+            start_time = time.time()
             res_dict = self.model_act(self.obs, inference=True)
+            torch.cuda.synchronize()
+            action_time = time.time() - start_time
+            # print("action_time: ", action_time)
             # Do env step
             # Clamp the actions of the action space 
             actions = res_dict['actions']
             actions[:,:] = torch.clamp(actions[:,:], -1, 1)
             actions = torch.nn.functional.pad(actions, (0, self.full_action_dim-actions.size(1)), value=0)
             actions_dict = self.action2dict(actions)
+            torch.cuda.synchronize()
+            start_time = time.time()
             obs, r, terminates, truncates, infos = self.env.step(actions_dict)
+            torch.cuda.synchronize()
+            step_time = time.time() - start_time
+            # print("step_time: ", step_time)
             # Map the obs
             self.obs = {'obs': self.obs2tensor(obs)}
             # Map the rewards

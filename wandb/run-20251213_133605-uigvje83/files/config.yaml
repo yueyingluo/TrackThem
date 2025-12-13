@@ -1,0 +1,144 @@
+_wandb:
+    value:
+        cli_version: 0.23.0
+        e:
+            4eecfb2d3pfwpgvsszmv8omiy2lzh7ya:
+                args:
+                    - test=False
+                    - task=Tracking
+                    - num_envs=32
+                codePath: train_DCMM.py
+                codePathLocal: train_DCMM.py
+                cpu_count: 24
+                cpu_count_logical: 32
+                cudaVersion: "12.4"
+                disk:
+                    /:
+                        total: "1006450962432"
+                        used: "57979228160"
+                email: 2300017819@stu.pku.edu.cn
+                executable: /home/user/miniconda3/envs/dcmm/bin/python3
+                git:
+                    commit: b6af28c67586fc029f3ab43faf5d787e7d3a1609
+                    remote: https://github.com/hang0610/catch_it.git
+                gpu: NVIDIA GeForce RTX 4090 D
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 14592
+                      memoryTotal: "51527024640"
+                      name: NVIDIA GeForce RTX 4090 D
+                      uuid: GPU-f4b89a3e-4c73-993b-f8cf-f50f280b261f
+                host: user-System-Product-Name
+                memory:
+                    total: "134650777600"
+                os: Linux-6.8.0-87-generic-x86_64-with-glibc2.17
+                program: train_DCMM.py
+                python: CPython 3.8.20
+                root: /home/user/catch_it
+                startedAt: "2025-12-13T05:36:05.078344Z"
+                writerId: 4eecfb2d3pfwpgvsszmv8omiy2lzh7ya
+        m: []
+        python_version: 3.8.20
+        t:
+            "1":
+                - 1
+                - 50
+            "2":
+                - 1
+                - 50
+            "3":
+                - 13
+                - 16
+                - 61
+            "4": 3.8.20
+            "5": 0.23.0
+            "12": 0.23.0
+            "13": linux-x86_64
+checkpoint_catching:
+    value: ""
+checkpoint_tracking:
+    value: ""
+device_id:
+    value: 0
+experiment:
+    value: ""
+imshow_cam:
+    value: false
+num_envs:
+    value: 32
+object_eval:
+    value: false
+output_name:
+    value: Dcmm
+rl_device:
+    value: cuda:0
+seed:
+    value: null
+task:
+    value: Tracking
+test:
+    value: false
+torch_deterministic:
+    value: false
+train:
+    value:
+        algo: PPO
+        network:
+            mlp:
+                units:
+                    - 256
+                    - 128
+            separate_value_mlp: true
+        ppo:
+            action_catch_denorm:
+                - 1.5
+                - 0.025
+                - 0.15
+            action_track_denorm:
+                - 1.5
+                - 0.025
+                - 0.01
+            bounds_loss_coef: 0.0001
+            clip_value: true
+            clip_value_loss: false
+            critic_coef: 4
+            e_clip: 0.2
+            entropy_coef: 0
+            freeze_arm: false
+            freeze_base: false
+            gamma: 0.99
+            grad_norm: 1
+            horizon_length: 64
+            img_dim:
+                - 112
+                - 112
+            kl_threshold: 0.016
+            learning_rate: 0.0005
+            lr_schedule: kl
+            max_agent_steps: 25000000
+            max_test_steps: 10000
+            mini_epochs: 6
+            minibatch_size: 512
+            name: Dcmm
+            normalize_advantage: true
+            normalize_input: true
+            normalize_value: true
+            num_actors: 32
+            num_frames: 2
+            reward_scale_value: 0.1
+            save_best_after: 500
+            save_frequency: 2000
+            tau: 0.95
+            test_num_episodes: 100
+            truncate_grads: true
+            value_bootstrap: true
+        seed: null
+viewer:
+    value: false
+wandb_entity:
+    value: lauren05-peking-university
+wandb_mode:
+    value: online
+wandb_project:
+    value: RL_Dcmm_Track_Random

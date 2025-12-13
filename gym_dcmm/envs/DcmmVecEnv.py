@@ -109,8 +109,10 @@ class DcmmVecEnv(gym.Env):
         object_eval=False,
         camera_name=["top", "wrist"],
         object_name="object",
-        env_time=2.5,
-        steps_per_policy=20,
+        # env_time=2.5,
+        env_time = 5.0,
+        # steps_per_policy=20,
+        steps_per_policy=40,
         img_size=(480, 640),
         device='cuda:0',
         print_obs=False,
@@ -138,7 +140,7 @@ class DcmmVecEnv(gym.Env):
         self.print_info = print_info
         self.print_contacts = print_contacts
         # Initialize the environment
-        self.Dcmm = MJ_DCMM(viewer=viewer, object_name=object_name, object_eval=object_eval)
+        self.Dcmm = MJ_DCMM(viewer=viewer, object_name=object_name, object2_name='object2', object_eval=object_eval)
         # self.Dcmm.show_model_info()
         self.fps = 1 / (self.steps_per_policy * self.Dcmm.model.opt.timestep)
         # Randomize the Object Info
@@ -155,6 +157,7 @@ class DcmmVecEnv(gym.Env):
         print("self.hand_start_id: ", self.hand_start_id)
         self.floor_id = mujoco.mj_name2id(self.Dcmm.model, mujoco.mjtObj.mjOBJ_GEOM, 'floor')
         self.object_id = mujoco.mj_name2id(self.Dcmm.model, mujoco.mjtObj.mjOBJ_GEOM, self.object_name)
+        self.object2_id = mujoco.mj_name2id(self.Dcmm.model, mujoco.mjtObj.mjOBJ_GEOM, 'object2')
         self.base_id = mujoco.mj_name2id(self.Dcmm.model, mujoco.mjtObj.mjOBJ_GEOM, 'ranger_base')
 
         # Set the camera configuration
@@ -211,6 +214,7 @@ class DcmmVecEnv(gym.Env):
         hand_low = np.array([self.Dcmm.model.jnt_range[i][0] for i in hand_joint_indices])
         hand_high = np.array([self.Dcmm.model.jnt_range[i][1] for i in hand_joint_indices])
 
+        self.object1_touched = False  # Track if object1 has been touched in Tracking task
         # Get initial ee_pos3d
         self.init_pos = True
         self.initial_ee_pos3d = self._get_relative_ee_pos3d()
@@ -283,6 +287,13 @@ class DcmmVecEnv(gym.Env):
         self.object_q = np.array([1, 0, 0, 0])
         self.object_pos3d = np.array([0, 0, 1.5])
         self.object_vel6d = np.array([0., 0., 1.25, 0.0, 0.0, 0.0])
+        # Object2 properties
+        self.object2_q = np.array([1, 0, 0, 0])
+        self.object2_pos3d = np.array([0, 0, 1.5])
+        self.object2_vel6d = np.array([0., 0., 1.25, 0.0, 0.0, 0.0])
+        self.object2_static_time = 0.75
+        self.object2_throw = False
+        self.random_mass2 = 0.25
         self.step_touch = False
 
         self.imgs = np.zeros((0, self.img_size[0], self.img_size[1], 1))
@@ -388,17 +399,29 @@ class DcmmVecEnv(gym.Env):
     
     def _get_relative_object_pos3d(self):
         # Caclulate the object_pos3d w.r.t. the base_link
+        # For Tracking task, switch target from object1 to object2 after touching object1
+        if self.task == "Tracking" and self.object1_touched:
+            target_object_name = "object2"
+        else:
+            target_object_name = self.Dcmm.object_name
+            
         base_yaw = quat2theta(self.Dcmm.data.body("base_link").xquat[0], self.Dcmm.data.body("base_link").xquat[3])
         x,y = relative_position(self.Dcmm.data.body("arm_base").xpos[0:2], 
-                                self.Dcmm.data.body(self.Dcmm.object_name).xpos[0:2], 
+                                self.Dcmm.data.body(target_object_name).xpos[0:2], 
                                 base_yaw)
         return np.array([x, y, 
-                         self.Dcmm.data.body(self.Dcmm.object_name).xpos[2]-self.Dcmm.data.body("arm_base").xpos[2]])
+                         self.Dcmm.data.body(target_object_name).xpos[2]-self.Dcmm.data.body("arm_base").xpos[2]])
 
     def _get_relative_object_v_lin_3d(self):
         # Caclulate the object_v_lin3d w.r.t. the base_link
+        # For Tracking task, switch target from object1 to object2 after touching object1
+        if self.task == "Tracking" and self.object1_touched:
+            target_object_name = "object2"
+        else:
+            target_object_name = self.Dcmm.object_name
+            
         base_vel = self.Dcmm.data.body("arm_base").cvel[3:6]
-        global_object_v_lin = self.Dcmm.data.joint(self.Dcmm.object_name).qvel[0:3]
+        global_object_v_lin = self.Dcmm.data.joint(target_object_name).qvel[0:3]
         base_yaw = quat2theta(self.Dcmm.data.body("base_link").xquat[0], self.Dcmm.data.body("base_link").xquat[3])
         object_v_lin_x = math.cos(base_yaw) * (global_object_v_lin[0]-base_vel[0]) + math.sin(base_yaw) * (global_object_v_lin[1]-base_vel[1])
         object_v_lin_y = -math.sin(base_yaw) * (global_object_v_lin[0]-base_vel[0]) + math.cos(base_yaw) * (global_object_v_lin[1]-base_vel[1])
@@ -455,15 +478,23 @@ class DcmmVecEnv(gym.Env):
     def _get_info(self):
         # Time of the Mujoco environment
         env_time = self.Dcmm.data.time - self.start_time
+        
+        # For Tracking task, switch target from object1 to object2 after touching object1
+        if self.task == "Tracking" and self.object1_touched:
+            target_object_name = "object2"
+        else:
+            target_object_name = self.Dcmm.object_name
+        
         ee_distance = np.linalg.norm(self.Dcmm.data.body("link6").xpos - 
-                                    self.Dcmm.data.body(self.Dcmm.object_name).xpos[0:3])
+                                    self.Dcmm.data.body(target_object_name).xpos[0:3])
         base_distance = np.linalg.norm(self.Dcmm.data.body("arm_base").xpos[0:2] -
-                                        self.Dcmm.data.body(self.Dcmm.object_name).xpos[0:2])
+                                        self.Dcmm.data.body(target_object_name).xpos[0:2])
         # print("base_distance: ", base_distance)
         if self.print_info: 
             print("##### print info")
             print("env_time: ", env_time)
             print("ee_distance: ", ee_distance)
+            print("target_object: ", target_object_name)
         return {
             # Get contact point from the mujoco model
             "env_time": env_time,
@@ -555,6 +586,31 @@ class DcmmVecEnv(gym.Env):
         r_obj_quat = R.from_euler('xyz', [0, np.random.rand()*1*math.pi, 0], degrees=False)
         self.object_q = r_obj_quat.as_quat()
 
+    def random_object2_pose(self):
+        # Random Position for object2
+        x = np.random.rand() - 0.5 # (-0.5, 0.5)
+        y = 2.2 + 0.3 * np.random.rand() # (2.2, 2.5)
+        # Low or High Starting Position
+        low_factor = False if np.random.rand() < 0.5 else True
+        if low_factor: height = 0.7 + 0.3 * np.random.rand()# (0.7, 1.0)
+        else: height = 1.0 + 0.6 * np.random.rand() # (1.0, 1.6)
+        # Random Velocity
+        r_vel = 1 + np.random.rand() # (1, 2)
+        alpha_vel = math.pi * (np.random.rand()*1/6 + 5/12) # alpha_vel = (5/12 * pi, 7/12 * pi)
+        v_lin_x = r_vel * math.cos(alpha_vel) # (-0.0, -0.5)
+        v_lin_y = - r_vel * math.sin(alpha_vel) # (-0.5, -1.0)
+        v_lin_z = 0.5 * np.random.rand() + 2.0 # (2.0, 2.5)
+        if y > 2.25: v_lin_y -= 0.4
+        if height < 1.0: v_lin_z += 1
+        self.object2_pos3d = np.array([x, y, height])
+        self.object2_vel6d = np.array([v_lin_x, v_lin_y, v_lin_z, 0.0, 0.0, 0.0])
+        # Object2 is thrown 1 second after object1
+        self.object2_static_time = self.object_static_time + 1.0
+        # Random Quaternion
+        r_obj2_quat = R.from_euler('xyz', [0, np.random.rand()*1*math.pi, 0], degrees=False)
+        self.object2_q = r_obj2_quat.as_quat()
+        # Random mass for object2
+        self.random_mass2 = np.random.uniform(DcmmCfg.object_mass[0], DcmmCfg.object_mass[0])
     
     def random_PID(self):
         # Random the PID Controller Params in DCMM
@@ -592,10 +648,15 @@ class DcmmVecEnv(gym.Env):
         self.Dcmm.data.qpos[21:37] = DcmmCfg.hand_joints[:]
         self.Dcmm.data_arm.qpos[0:6] = DcmmCfg.arm_joints[:]
         self.Dcmm.data.body("object").xpos[0:3] = np.array([2, 2, 1])
+        self.Dcmm.data.body("object2").xpos[0:3] = np.array([2, 2, 1])
         # Random 3D position TODO: Adjust to the fov
         self.random_object_pose()
+        self.random_object2_pose()
         self.Dcmm.set_throw_pos_vel(pose=np.concatenate((self.object_pos3d[:], self.object_q[:])),
                                     velocity=np.zeros(6))
+        # Initialize object2 at its starting position
+        self.Dcmm.data.qpos[44:51] = np.concatenate((self.object2_pos3d[:], self.object2_q[:]))
+        self.Dcmm.data.qvel[42:48] = np.zeros(6)
         # TODO: TESTING
         # self.Dcmm.set_throw_pos_vel(pose=np.array([0.0, 0.4, 1.0, 1.0, 0.0, 0.0, 0.0]),
         #                             velocity=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
@@ -616,6 +677,8 @@ class DcmmVecEnv(gym.Env):
         self.init_pos = True
         self.vel_init = False
         self.object_throw = False
+        self.object2_throw = False
+        self.object1_touched = False  # Reset the object1 touch flag for Tracking task
         self.steps = 0
         # Reset the time
         self.start_time = self.Dcmm.data.time
@@ -795,22 +858,35 @@ class DcmmVecEnv(gym.Env):
         self.step_touch = False
         for _ in range(self.steps_per_policy):
             # Update the control command according to the latest policy output
-            self.Dcmm.data.ctrl[:-1] = self._get_ctrl()
+            self.Dcmm.data.ctrl[:-2] = self._get_ctrl()
             if self.render_per_step:
                 # Rendering
                 img = self.render()
             # As of MuJoCo 2.0, force-related quantities like cacc are not computed
             # unless there's a force sensor in the model.
             # See https://github.com/openai/gym/issues/1541
+            
+            # Handle object1 throwing
             if self.Dcmm.data.time - self.start_time < self.object_static_time:
                 self.Dcmm.set_throw_pos_vel(pose=np.concatenate((self.object_pos3d[:], self.object_q[:])),
                                             velocity=np.zeros(6))
-                self.Dcmm.data.ctrl[-1] = self.random_mass * -self.Dcmm.model.opt.gravity[2]
+                self.Dcmm.data.ctrl[-2] = self.random_mass * -self.Dcmm.model.opt.gravity[2]
             elif not self.object_throw:
                 self.Dcmm.set_throw_pos_vel(pose=np.concatenate((self.object_pos3d[:], self.object_q[:])),
                                             velocity=self.object_vel6d[:])
-                self.Dcmm.data.ctrl[-1] = 0.0
+                self.Dcmm.data.ctrl[-2] = 0.0
                 self.object_throw = True
+            
+            # Handle object2 throwing (1 second after object1)
+            if self.Dcmm.data.time - self.start_time < self.object2_static_time:
+                self.Dcmm.data.qpos[44:51] = np.concatenate((self.object2_pos3d[:], self.object2_q[:]))
+                self.Dcmm.data.qvel[42:48] = np.zeros(6)
+                self.Dcmm.data.ctrl[-1] = self.random_mass2 * -self.Dcmm.model.opt.gravity[2]
+            elif not self.object2_throw:
+                self.Dcmm.data.qpos[44:51] = np.concatenate((self.object2_pos3d[:], self.object2_q[:]))
+                self.Dcmm.data.qvel[42:48] = self.object2_vel6d[:]
+                self.Dcmm.data.ctrl[-1] = 0.0
+                self.object2_throw = True
 
             mujoco.mj_step(self.Dcmm.model, self.Dcmm.data)
             mujoco.mj_rnePostConstraint(self.Dcmm.model, self.Dcmm.data)
@@ -824,18 +900,52 @@ class DcmmVecEnv(gym.Env):
             mask_finger = self.contacts['object_contacts'] > self.hand_start_id
             mask_hand = self.contacts['object_contacts'] >= self.hand_start_id
             mask_palm = self.contacts['object_contacts'] == self.hand_start_id
+            
+            # For Tracking task with object2, also check object2 contacts
+            if self.task == "Tracking":
+                # Get object2 contacts
+                geom_ids = self.Dcmm.data.contact.geom
+                geom1_ids = self.Dcmm.data.contact.geom1
+                geom2_ids = self.Dcmm.data.contact.geom2
+                geom1_object2 = np.where((geom1_ids == self.object2_id))[0]
+                geom2_object2 = np.where((geom2_ids == self.object2_id))[0]
+                contacts_geom1 = np.array([])
+                contacts_geom2 = np.array([])
+                if geom1_object2.size != 0:
+                    contacts_geom1 = geom_ids[geom1_object2][:,1]
+                if geom2_object2.size != 0:
+                    contacts_geom2 = geom_ids[geom2_object2][:,0]
+                object2_contacts = np.concatenate((contacts_geom1, contacts_geom2))
+                
+                mask_coll_obj2 = object2_contacts < self.hand_start_id
+                mask_finger_obj2 = object2_contacts > self.hand_start_id
+                mask_palm_obj2 = object2_contacts == self.hand_start_id
+            
             # Whether the object is caught
             if self.step_touch == False:
                 if self.task == "Catching" and np.any(mask_hand):
                     self.step_touch = True
-                elif self.task == "Tracking" and np.any(mask_palm):
-                    self.step_touch = True
+                elif self.task == "Tracking":
+                    if not self.object1_touched and np.any(mask_palm):
+                        # Touched object1
+                        # self.step_touch = True # only set step_touch after touching object2
+                        self.object1_touched = True
+                    elif self.object1_touched and np.any(mask_palm_obj2):
+                        # Touched object2
+                        self.step_touch = True
+                        
             # Whether the object falls
             if not self.terminated:
                 if self.task == "Catching":
                     self.terminated = np.any(mask_coll)
                 elif self.task == "Tracking":
-                    self.terminated = np.any(mask_coll) or np.any(mask_finger)
+                    if not self.object1_touched:
+                        # Before touching object1, terminate if object1 collides or touches fingers
+                        self.terminated = np.any(mask_coll) or np.any(mask_finger)
+                        
+                    else:
+                        # After touching object1, terminate if object2 collides or touches fingers
+                        self.terminated = np.any(mask_coll_obj2) or np.any(mask_finger_obj2)
             # If the object falls, terminate the episode in advance
             if self.terminated:
                 break
@@ -870,8 +980,9 @@ class DcmmVecEnv(gym.Env):
                 truncated = True
             else: truncated = False
         elif self.task == "Tracking":
-            if self.step_touch:
-                # print("Tracking Success!!!!!!")
+            # Success when both object1 AND object2 have been touched
+            if self.object1_touched and self.step_touch:
+                # print("Tracking Success!!!!! Both objects touched!")
                 truncated = True
             else: truncated = False
         terminated = self.terminated

@@ -324,6 +324,11 @@
             <!-- Evaluation Objects -->
             <geom name='object' mesh="bread_mesh" type="mesh" solimp="0.998 0.998 0.001" solref="0.001 1" density="50" friction="0.95 0.3 0.1" group="0" condim="4"/>
         </body>
+        <body name="object2" pos="-0.4 1.25 1.2">
+            <inertial pos="0.0 0 0" quat="1 0.0 -0.0 -0.0" mass="0.25" diaginertia="7.33516e-05 7.33516e-05 7.33516e-05" />
+            <joint name='object2' type='free' damping="0.1" />
+            <geom name='object2' mesh="bread_mesh" type="mesh" solimp="0.998 0.998 0.001" solref="0.001 1" density="50" friction="0.95 0.3 0.1" group="0" condim="4"/>
+        </body>
     </worldbody>
     <contact>
         <pair name = "floor_wheel_1" geom1 = "floor" geom2 = "Wheel1" friction = "1.1 1.1 0.005 0.0001 0.0001"/>
@@ -371,5 +376,7 @@
         <motor name="hand_actuator_15" joint="15" ctrlrange = "-50 50" />
         <!-- object actuator -->
         <motor name="object_actuator" joint="object" gear="0 0 1 0 0 0" ctrlrange = "-50 50" />
+        <!-- object2 actuator -->
+        <motor name="object2_actuator" joint="object2" gear="0 0 1 0 0 0" ctrlrange = "-50 50" />
     </actuator>
 </mujoco>

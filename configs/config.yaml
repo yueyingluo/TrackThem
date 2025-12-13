@@ -24,10 +24,10 @@ checkpoint_catching: ''
 
 # wandb config
 output_name: Dcmm
-wandb_mode: "disabled"  # "online" | "offline" | "disabled"
-wandb_entity: 'Your_username'
-# wandb_project: 'RL_Dcmm_Track_Random'
-wandb_project: 'RL_Dcmm_Catch_Random'
+wandb_mode: "online"  # "online" | "offline" | "disabled"
+wandb_entity: 'lauren05-peking-university'
+wandb_project: 'RL_Dcmm_Track_Random'
+# wandb_project: 'RL_Dcmm_Catch_Random'
 
 # set default task and default training config based on task
 defaults:

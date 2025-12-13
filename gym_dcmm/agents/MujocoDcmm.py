@@ -56,6 +56,7 @@ class MJ_DCMM(object):
                  model_arm=None, 
                  viewer=True, 
                  object_name='object',
+                 object2_name='object2',
                  object_eval=False, 
                  timestep=0.002):
         self.viewer = None
@@ -73,6 +74,7 @@ class MJ_DCMM(object):
         else:
             self.model_arm = model_arm
         self.model = mujoco.MjModel.from_xml_string(self.model_xml_string)
+        # print(self.model_xml_string)
         self.model.opt.timestep = timestep
         self.model_arm.opt.timestep = timestep
         self.data = mujoco.MjData(self.model)
@@ -96,10 +98,17 @@ class MJ_DCMM(object):
                   \nPlease check the object name in the .xml file.")
             raise ValueError
         self.object_name = object_name
+        try:
+            _ = self.data.body(object2_name)
+        except:
+            print("The object name is not found in the model!                  \nPlease check the object name in the .xml file.")
+            raise ValueError
+        self.object2_name = object2_name
         # Get the geom id of the hand, the floor and the object
         self.hand_start_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, 'mcp_joint') - 1
         self.floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, 'floor')
         self.object_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, self.object_name)
+        self.object2_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, self.object2_name)
 
         # Mobile Base Control
         self.rp_base = np.zeros(3)

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import time
 
 
 class MLP(nn.Module):
@@ -92,7 +93,12 @@ class ActorCritic(nn.Module):
     @torch.no_grad()
     def act_inference(self, obs_dict):
         # used for testing
+        torch.cuda.synchronize()
+        start_time = time.time()
         mu, logstd, value = self._actor_critic(obs_dict)
+        torch.cuda.synchronize()
+        action_time = time.time() - start_time
+        # print("action_time_clean: ", action_time)
         return mu
 
     def _actor_critic(self, obs_dict):
