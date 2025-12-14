@@ -1,0 +1,45 @@
+{
+  "os": "Linux-6.8.0-87-generic-x86_64-with-glibc2.17",
+  "python": "CPython 3.8.20",
+  "startedAt": "2025-12-13T10:53:57.868823Z",
+  "args": [
+    "test=False",
+    "task=Tracking",
+    "num_envs=32"
+  ],
+  "program": "train_DCMM.py",
+  "codePath": "train_DCMM.py",
+  "codePathLocal": "train_DCMM.py",
+  "git": {
+    "remote": "git@github.com:yueyingluo/CatchThem.git",
+    "commit": "592def3794975ed4c81c2be08f342382f9f72101"
+  },
+  "email": "2300017819@stu.pku.edu.cn",
+  "root": "/home/user/catch_it",
+  "host": "user-System-Product-Name",
+  "executable": "/home/user/miniconda3/envs/dcmm/bin/python3",
+  "cpu_count": 24,
+  "cpu_count_logical": 32,
+  "gpu": "NVIDIA GeForce RTX 4090 D",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1006450962432",
+      "used": "58512240640"
+    }
+  },
+  "memory": {
+    "total": "134650777600"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 4090 D",
+      "memoryTotal": "51527024640",
+      "cudaCores": 14592,
+      "architecture": "Ada",
+      "uuid": "GPU-f4b89a3e-4c73-993b-f8cf-f50f280b261f"
+    }
+  ],
+  "cudaVersion": "12.4",
+  "writerId": "rcny4nihsirqcp9tcgb54avsiyjmh499"
+}
