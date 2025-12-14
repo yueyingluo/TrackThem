@@ -7,6 +7,11 @@ Agent must touch two objects sequentially with the robot's palm
 First touches object1, then switches target to object2
 Episode succeeds when both objects are touched
 
+## TODO
+- implement two objects [Done]
+- object trajectory prediction []
+- target change logic []
+
 modified from https://mobile-dex-catch.github.io/
 
 # Installation
