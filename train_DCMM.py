@@ -44,7 +44,7 @@ def main(config: DictConfig):
     print("config.num_envs: ", config.num_envs)
     env = gym.make_vec(env_name, num_envs=int(config.num_envs), 
                     task=task, camera_name=["top"],
-                    render_per_step=False, render_mode = "rgb_array",
+                    render_per_step=False, render_mode = "depth_array", # "rgb_array" or "depth_array"
                     object_name = "object",
                     img_size = config.train.ppo.img_dim,
                     imshow_cam = config.imshow_cam, 

@@ -1,0 +1,1 @@
+python3 train_DCMM.py test=True task=Tracking num_envs=1 checkpoint_tracking=assets/models/double_train.pth object_eval=True viewer=True imshow_cam=True

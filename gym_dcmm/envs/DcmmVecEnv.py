@@ -1043,9 +1043,55 @@ class DcmmVecEnv(gym.Env):
                 elif self.render_mode == "depth_array":
                     img = self.Dcmm.depth_2_meters(img)
                     if self.imshow_cam:
+                        import time
+                        detection_start = time.time()
+                        
                         depth_norm = np.zeros(img.shape, dtype=np.uint8)
                         cv.convertScaleAbs(img, depth_norm, alpha=(255.0/img.max()))
-                        cv.imshow(camera_name+"_depth", depth_norm)
+                        
+                        # Object detection in depth image
+                        # Create a binary mask for object detection (threshold for nearby objects)
+                        depth_threshold = 3.0  # Detect objects within 3 meters
+                        _, binary_mask = cv.threshold(img, depth_threshold, 255, cv.THRESH_BINARY_INV)
+                        binary_mask = binary_mask.astype(np.uint8)
+                        
+                        # Apply morphological operations to clean up the mask
+                        kernel = np.ones((5, 5), np.uint8)
+                        binary_mask = cv.morphologyEx(binary_mask, cv.MORPH_CLOSE, kernel)
+                        binary_mask = cv.morphologyEx(binary_mask, cv.MORPH_OPEN, kernel)
+                        
+                        # Find contours
+                        contours, _ = cv.findContours(binary_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+                        
+                        # Create a color image for visualization
+                        depth_display = cv.cvtColor(depth_norm, cv.COLOR_GRAY2BGR)
+                        
+                        # Draw bounding boxes around detected objects
+                        img_area = img.shape[0] * img.shape[1]
+                        max_area_ratio = 0.3  # Maximum 30% of image area
+                        num_detected = 0
+                        for contour in contours:
+                            area = cv.contourArea(contour)
+                            # Filter small contours (noise) and too large objects (background/floor)
+                            if area > 100 and area < img_area * max_area_ratio:  # Area threshold
+                                x, y, w, h = cv.boundingRect(contour)
+                                # Draw rectangle
+                                cv.rectangle(depth_display, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                                # Add label with depth info
+                                center_depth = img[y + h//2, x + w//2]
+                                label = f"D: {center_depth:.2f}m"
+                                cv.putText(depth_display, label, (x, y - 10), 
+                                          cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                                num_detected += 1
+                        
+                        detection_time = (time.time() - detection_start) * 1000  # Convert to ms
+                        
+                        # Display timing info on the image
+                        timing_text = f"Detection: {detection_time:.2f}ms | Objects: {num_detected}"
+                        cv.putText(depth_display, timing_text, (10, 30), 
+                                  cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                        
+                        cv.imshow(camera_name+"_depth", depth_display)
                         cv.waitKey(1)
                     img = np.expand_dims(img, axis=0)
             else:
